@@ -1,0 +1,6 @@
+{
+  "name": "Teen School Academy",
+  "description": "Professional School Management Web Application and Public Portal with Supabase Database Integration, Student, Teacher, Fee, Attendance, and Examination Management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
