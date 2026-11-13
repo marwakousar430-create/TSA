@@ -69,7 +69,9 @@ export const AdmissionsManagement: React.FC<{ onSwitchToStudents: () => void }> 
       parent_contact: inquiry.guardian_phone,
       address: inquiry.address,
       admission_date: new Date().toISOString().split('T')[0],
-      photo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      photo_url:
+        inquiry.student_photo_url ||
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
       status: 'Active',
       blood_group: inquiry.blood_group || 'O+',
     });
@@ -263,14 +265,23 @@ export const AdmissionsManagement: React.FC<{ onSwitchToStudents: () => void }> 
             </div>
 
             <div className="space-y-3 text-slate-700">
-              <div className="p-3 bg-sky-50/70 rounded-xl border border-sky-100 flex items-center justify-between">
-                <div>
-                  <div className="text-xs font-bold text-slate-900">{selectedInquiry.student_name}</div>
-                  <div className="text-[11px] text-sky-800">
-                    Applying for: {selectedInquiry.applying_for_class} ({selectedInquiry.academic_session || '2026-2027'})
+              <div className="p-3 bg-sky-50/70 rounded-xl border border-sky-100 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {selectedInquiry.student_photo_url ? (
+                    <img
+                      src={selectedInquiry.student_photo_url}
+                      alt={selectedInquiry.student_name}
+                      className="w-11 h-11 rounded-xl object-cover border border-sky-200 shrink-0"
+                    />
+                  ) : null}
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">{selectedInquiry.student_name}</div>
+                    <div className="text-[11px] text-sky-800">
+                      Applying for: {selectedInquiry.applying_for_class} ({selectedInquiry.academic_session || '2026-2027'})
+                    </div>
                   </div>
                 </div>
-                <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full ${
+                <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full shrink-0 ${
                   selectedInquiry.status === 'Accepted'
                     ? 'bg-emerald-100 text-emerald-800'
                     : selectedInquiry.status === 'Pending'
@@ -325,7 +336,7 @@ export const AdmissionsManagement: React.FC<{ onSwitchToStudents: () => void }> 
               </div>
 
               <div className="space-y-1.5 pt-1">
-                <span className="font-bold text-slate-900 text-[11px] uppercase tracking-wider block">Prior Academic Record</span>
+                <span className="font-bold text-slate-900 text-[11px] uppercase tracking-wider block">Academics, Fee & Transport</span>
                 <div className="flex justify-between py-1 border-b border-slate-100">
                   <span className="text-slate-400">Previous School:</span>
                   <span className="font-medium text-slate-900">{selectedInquiry.previous_school || 'Not specified'}</span>
@@ -336,14 +347,44 @@ export const AdmissionsManagement: React.FC<{ onSwitchToStudents: () => void }> 
                     <span className="font-medium text-emerald-700">{selectedInquiry.previous_grade_percentage}</span>
                   </div>
                 )}
+                {selectedInquiry.scholarship_type && (
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Scholarship Track:</span>
+                    <span className="font-medium text-emerald-700">{selectedInquiry.scholarship_type}</span>
+                  </div>
+                )}
+                {selectedInquiry.estimated_monthly_fee !== undefined && (
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-400">Est. Monthly Fee:</span>
+                    <span className="font-bold text-sky-700">${selectedInquiry.estimated_monthly_fee} / mo</span>
+                  </div>
+                )}
+                <div className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-400">School Transport:</span>
+                  <span className="font-medium text-slate-900">
+                    {selectedInquiry.transport_required ? selectedInquiry.transport_route : 'Self Drop-off'}
+                  </span>
+                </div>
                 {selectedInquiry.interests && (
                   <div className="flex justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-400">Extracurriculars:</span>
-                    <span className="font-medium text-slate-900">
+                    <span className="font-medium text-slate-900 text-right">
                       {Array.isArray(selectedInquiry.interests)
                         ? selectedInquiry.interests.join(', ')
                         : selectedInquiry.interests}
                     </span>
+                  </div>
+                )}
+                {selectedInquiry.documents_checklist && selectedInquiry.documents_checklist.length > 0 && (
+                  <div className="pt-1">
+                    <span className="text-slate-400 block text-[10px]">Confirmed Documents Ready:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedInquiry.documents_checklist.map((doc) => (
+                        <span key={doc} className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[10px] font-medium">
+                          ✓ {doc}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

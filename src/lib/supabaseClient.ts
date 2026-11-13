@@ -864,6 +864,59 @@ export const db = {
       }
       return getStoredTable<AdmissionInquiry>('admissions', INITIAL_ADMISSIONS);
     },
+    track: async (query: string): Promise<AdmissionInquiry[]> => {
+      const clean = query.trim().toLowerCase();
+      if (!clean) return [];
+
+      const client = getSupabase();
+      if (client) {
+        try {
+          const { data, error } = await client
+            .from('admissions')
+            .select('*')
+            .or(`application_number.ilike.%${clean}%,guardian_email.ilike.%${clean}%`)
+            .order('submitted_at', { ascending: false });
+          if (!error && data && data.length > 0) return data as AdmissionInquiry[];
+        } catch (e) {
+          console.warn('Supabase track fallback:', e);
+        }
+      }
+
+      const localAll = getStoredTable<AdmissionInquiry>('admissions', INITIAL_ADMISSIONS);
+      return localAll.filter(
+        (item) =>
+          (item.application_number && item.application_number.toLowerCase().includes(clean)) ||
+          item.guardian_email.toLowerCase() === clean ||
+          item.id.toLowerCase() === clean
+      );
+    },
+    uploadPhoto: async (file: File): Promise<string> => {
+      const client = getSupabase();
+      if (client) {
+        try {
+          const ext = file.name.split('.').pop() || 'jpg';
+          const fileName = `applicant-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+          const { error: uploadError } = await client.storage.from('student-photos').upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+          if (!uploadError) {
+            const { data } = client.storage.from('student-photos').getPublicUrl(fileName);
+            if (data?.publicUrl) return data.publicUrl;
+          }
+        } catch (e) {
+          console.warn('Supabase storage upload fallback:', e);
+        }
+      }
+
+      // Data URL fallback so photo previews and persists locally
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Failed to read image file.'));
+        reader.readAsDataURL(file);
+      });
+    },
     submit: async (
       item: Omit<AdmissionInquiry, 'id' | 'created_at' | 'submitted_at' | 'status'>
     ): Promise<AdmissionInquiry & { isSupabaseSynced?: boolean }> => {
@@ -901,7 +954,17 @@ export const db = {
               emergency_contact: newInquiry.emergency_contact || null,
               address: newInquiry.address,
               blood_group: newInquiry.blood_group || null,
-              interests: newInquiry.interests || [],
+              student_photo_url: newInquiry.student_photo_url || null,
+              scholarship_type: newInquiry.scholarship_type || 'None',
+              estimated_monthly_fee: newInquiry.estimated_monthly_fee ?? null,
+              transport_required: newInquiry.transport_required ?? false,
+              transport_route: newInquiry.transport_route || null,
+              documents_checklist: newInquiry.documents_checklist || [],
+              interests: Array.isArray(newInquiry.interests)
+                ? newInquiry.interests
+                : newInquiry.interests
+                ? newInquiry.interests.split(',').map((s) => s.trim()).filter(Boolean)
+                : [],
               status: newInquiry.status,
               notes: newInquiry.notes || null,
               submitted_at: newInquiry.submitted_at,
@@ -913,7 +976,6 @@ export const db = {
             isSupabaseSynced = true;
           } else {
             console.warn('Supabase admissions insert notice (retrying core fields):', error.message);
-            // Fallback for minimalist tables
             const { error: fallbackErr } = await client.from('admissions').insert([
               {
                 student_name: newInquiry.student_name,

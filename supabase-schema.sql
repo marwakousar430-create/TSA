@@ -230,20 +230,47 @@ CREATE TABLE IF NOT EXISTS notices (
 -- 14. ADMISSION INQUIRIES TABLE
 CREATE TABLE IF NOT EXISTS admissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    application_number TEXT UNIQUE,
     student_name TEXT NOT NULL,
     father_name TEXT NOT NULL,
+    mother_name TEXT,
     date_of_birth DATE NOT NULL,
     gender TEXT NOT NULL CHECK (gender IN ('Male', 'Female', 'Other')),
     applying_for_class TEXT NOT NULL,
+    academic_session TEXT DEFAULT '2026-2027',
     previous_school TEXT,
+    previous_grade_percentage TEXT,
     guardian_phone TEXT NOT NULL,
     guardian_email TEXT NOT NULL,
+    emergency_contact TEXT,
     address TEXT NOT NULL,
+    blood_group TEXT,
+    student_photo_url TEXT,
+    scholarship_type TEXT DEFAULT 'None',
+    estimated_monthly_fee NUMERIC(10,2),
+    transport_required BOOLEAN DEFAULT false,
+    transport_route TEXT,
+    documents_checklist TEXT[] DEFAULT '{}',
+    interests TEXT[] DEFAULT '{}',
     status TEXT NOT NULL CHECK (status IN ('Pending', 'Reviewed', 'Accepted', 'Rejected')) DEFAULT 'Pending',
     notes TEXT,
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
     created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS application_number TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS mother_name TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS academic_session TEXT DEFAULT '2026-2027';
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS previous_grade_percentage TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS emergency_contact TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS blood_group TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS student_photo_url TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS scholarship_type TEXT DEFAULT 'None';
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS estimated_monthly_fee NUMERIC(10,2);
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS transport_required BOOLEAN DEFAULT false;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS transport_route TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS documents_checklist TEXT[] DEFAULT '{}';
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS interests TEXT[] DEFAULT '{}';
 
 -- 15. SCHOOL EVENTS TABLE
 CREATE TABLE IF NOT EXISTS school_events (
@@ -304,6 +331,7 @@ CREATE POLICY "Public gallery viewable by anyone" ON gallery FOR SELECT USING (t
 CREATE POLICY "Public classes viewable by anyone" ON classes FOR SELECT USING (true);
 CREATE POLICY "Public teachers viewable by anyone" ON teachers FOR SELECT USING (status = 'Active');
 CREATE POLICY "Public can submit admission inquiry" ON admissions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public can track application status" ON admissions FOR SELECT USING (true);
 
 -- Authenticated Full Access
 CREATE POLICY "Admin full access on profiles" ON profiles FOR ALL USING (auth.role() = 'authenticated');
@@ -333,5 +361,6 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 CREATE POLICY "Public Access To Photos" ON storage.objects FOR SELECT USING (bucket_id IN ('student-photos', 'teacher-photos', 'school-gallery'));
+CREATE POLICY "Public can upload applicant photos" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'student-photos');
 CREATE POLICY "Authenticated users can upload photos" ON storage.objects FOR INSERT WITH CHECK (bucket_id IN ('student-photos', 'teacher-photos', 'school-gallery', 'school-documents') AND auth.role() = 'authenticated');
 CREATE POLICY "Authenticated users can update/delete photos" ON storage.objects FOR ALL USING (bucket_id IN ('student-photos', 'teacher-photos', 'school-gallery', 'school-documents') AND auth.role() = 'authenticated');

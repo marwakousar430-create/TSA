@@ -251,6 +251,12 @@ CREATE TABLE IF NOT EXISTS admissions (
     emergency_contact TEXT,
     address TEXT NOT NULL,
     blood_group TEXT,
+    student_photo_url TEXT,
+    scholarship_type TEXT DEFAULT 'None',
+    estimated_monthly_fee NUMERIC(10,2),
+    transport_required BOOLEAN DEFAULT false,
+    transport_route TEXT,
+    documents_checklist TEXT[] DEFAULT '{}',
     interests TEXT[] DEFAULT '{}',
     status TEXT NOT NULL CHECK (status IN ('Pending', 'Reviewed', 'Accepted', 'Rejected')) DEFAULT 'Pending',
     notes TEXT,
@@ -265,6 +271,12 @@ ALTER TABLE admissions ADD COLUMN IF NOT EXISTS academic_session TEXT DEFAULT '2
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS previous_grade_percentage TEXT;
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS emergency_contact TEXT;
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS blood_group TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS student_photo_url TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS scholarship_type TEXT DEFAULT 'None';
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS estimated_monthly_fee NUMERIC(10,2);
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS transport_required BOOLEAN DEFAULT false;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS transport_route TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS documents_checklist TEXT[] DEFAULT '{}';
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS interests TEXT[] DEFAULT '{}';
 
 -- 15. SCHOOL EVENTS TABLE
@@ -332,8 +344,9 @@ CREATE POLICY "Public gallery viewable by anyone" ON gallery FOR SELECT USING (t
 CREATE POLICY "Public classes viewable by anyone" ON classes FOR SELECT USING (true);
 CREATE POLICY "Public teachers viewable by anyone" ON teachers FOR SELECT USING (status = 'Active');
 
--- 2. Public Insert for Online Admission Inquiry
+-- 2. Public Insert & Tracking Select for Online Admission Inquiry
 CREATE POLICY "Public can submit admission inquiry" ON admissions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public can track application status" ON admissions FOR SELECT USING (true);
 
 -- 3. Authenticated Admin / Staff Full Access Policies
 -- Users with admin or staff roles have full access
@@ -367,11 +380,12 @@ ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS policies
 CREATE POLICY "Public Access To Photos" ON storage.objects FOR SELECT USING (bucket_id IN ('student-photos', 'teacher-photos', 'school-gallery'));
+CREATE POLICY "Public can upload applicant photos" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'student-photos');
 CREATE POLICY "Authenticated users can upload photos" ON storage.objects FOR INSERT WITH CHECK (bucket_id IN ('student-photos', 'teacher-photos', 'school-gallery', 'school-documents') AND auth.role() = 'authenticated');
 CREATE POLICY "Authenticated users can update/delete photos" ON storage.objects FOR ALL USING (bucket_id IN ('student-photos', 'teacher-photos', 'school-gallery', 'school-documents') AND auth.role() = 'authenticated');
 `;
 
-export const ADMISSION_DB_AI_PROMPT = `Create a PostgreSQL table in Supabase named "admissions" to store student application data submitted from the "Apply Now" portal of Teen School Academy.
+export const ADMISSION_DB_AI_PROMPT = `Create a PostgreSQL table in Supabase named "admissions" to store student application data submitted from the "Apply Now" multi-step wizard of Teen School Academy.
 
 Include these exact fields:
 - id: UUID PRIMARY KEY DEFAULT gen_random_uuid()
@@ -390,6 +404,12 @@ Include these exact fields:
 - emergency_contact: TEXT
 - address: TEXT NOT NULL
 - blood_group: TEXT
+- student_photo_url: TEXT
+- scholarship_type: TEXT DEFAULT 'None'
+- estimated_monthly_fee: NUMERIC(10,2)
+- transport_required: BOOLEAN DEFAULT false
+- transport_route: TEXT
+- documents_checklist: TEXT[] DEFAULT '{}'
 - interests: TEXT[] DEFAULT '{}'
 - status: TEXT NOT NULL CHECK (status IN ('Pending', 'Reviewed', 'Accepted', 'Rejected')) DEFAULT 'Pending'
 - notes: TEXT
@@ -399,9 +419,10 @@ Include these exact fields:
 Security & Row Level Security (RLS):
 1. Enable Row Level Security (RLS) on the table:
    ALTER TABLE admissions ENABLE ROW LEVEL SECURITY;
-2. Create an INSERT policy allowing public/anonymous users to submit applications:
+2. Allow public/anonymous users to submit applications and track status by application_number:
    CREATE POLICY "Allow public insert for applications" ON admissions FOR INSERT WITH CHECK (true);
-3. Create a SELECT/ALL policy allowing authenticated staff and administrators to manage applications:
+   CREATE POLICY "Allow public application tracking" ON admissions FOR SELECT USING (true);
+3. Allow authenticated staff and administrators to manage applications:
    CREATE POLICY "Allow admin full access" ON admissions FOR ALL USING (auth.role() = 'authenticated');
 4. Add index on status and application_number:
    CREATE INDEX idx_admissions_status ON admissions(status);
@@ -427,6 +448,12 @@ CREATE TABLE IF NOT EXISTS admissions (
     emergency_contact TEXT,
     address TEXT NOT NULL,
     blood_group TEXT,
+    student_photo_url TEXT,
+    scholarship_type TEXT DEFAULT 'None',
+    estimated_monthly_fee NUMERIC(10,2),
+    transport_required BOOLEAN DEFAULT false,
+    transport_route TEXT,
+    documents_checklist TEXT[] DEFAULT '{}',
     interests TEXT[] DEFAULT '{}',
     status TEXT NOT NULL CHECK (status IN ('Pending', 'Reviewed', 'Accepted', 'Rejected')) DEFAULT 'Pending',
     notes TEXT,
@@ -441,6 +468,12 @@ ALTER TABLE admissions ADD COLUMN IF NOT EXISTS academic_session TEXT DEFAULT '2
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS previous_grade_percentage TEXT;
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS emergency_contact TEXT;
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS blood_group TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS student_photo_url TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS scholarship_type TEXT DEFAULT 'None';
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS estimated_monthly_fee NUMERIC(10,2);
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS transport_required BOOLEAN DEFAULT false;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS transport_route TEXT;
+ALTER TABLE admissions ADD COLUMN IF NOT EXISTS documents_checklist TEXT[] DEFAULT '{}';
 ALTER TABLE admissions ADD COLUMN IF NOT EXISTS interests TEXT[] DEFAULT '{}';
 
 -- Indexes
@@ -450,10 +483,13 @@ CREATE INDEX IF NOT EXISTS idx_admissions_app_num ON admissions(application_numb
 -- Enable RLS
 ALTER TABLE admissions ENABLE ROW LEVEL SECURITY;
 
--- Policies: Anyone can submit application, Authenticated Admin has full access
+-- Policies: Anyone can submit/track application, Authenticated Admin has full access
 DROP POLICY IF EXISTS "Public can submit admission inquiry" ON admissions;
 DROP POLICY IF EXISTS "Allow public insert for applications" ON admissions;
 CREATE POLICY "Allow public insert for applications" ON admissions FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public application tracking" ON admissions;
+CREATE POLICY "Allow public application tracking" ON admissions FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Admin full access on admissions" ON admissions;
 DROP POLICY IF EXISTS "Allow admin full access" ON admissions;

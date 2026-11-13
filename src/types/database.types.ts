@@ -235,6 +235,12 @@ export interface AdmissionInquiry {
   emergency_contact?: string;
   address: string;
   blood_group?: string;
+  student_photo_url?: string;
+  scholarship_type?: string;
+  estimated_monthly_fee?: number;
+  transport_required?: boolean;
+  transport_route?: string;
+  documents_checklist?: string[];
   interests?: string[] | string;
   status: AdmissionStatus;
   notes?: string;
